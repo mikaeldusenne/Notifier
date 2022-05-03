@@ -1,1 +1,4 @@
 apps
+__pycache__
+NotifierMailer/state/
+venv

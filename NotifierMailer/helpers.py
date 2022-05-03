@@ -20,3 +20,11 @@ def make_table(l):
         return "\n".join([tag(e) for e in ll])
     return table("\n".join([tr(e) for e in [totag(l[0].keys(), th)]+[totag(ee.values()) for ee in l]]))
 
+
+def write_file(p, e, mode="w"):
+    with open(p, mode) as f:
+        f.write(e)
+
+
+def append_file(p, e):
+    return write_file(p, e, "a")
