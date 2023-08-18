@@ -1,1 +1,5 @@
 python-dotenv
+attr
+cattrs
+instaloader
+beautifulsoup4

@@ -1,8 +1,10 @@
+from pprint import pprint, pformat
 import sys
 import json
 from subprocess import Popen, PIPE, STDOUT
+import subprocess as sp
 import os
-from os.path import join, split, dirname, basename
+from os.path import join, split, dirname, basename, expandvars
 import subprocess
 import pickle
 import logging
@@ -30,7 +32,7 @@ def get_pcss_output(c):
     return subprocess.run(c, capture_output=True).stdout.decode().strip()
 
 os.environ['DISPLAY']=':0.0'
-os.environ['DBUS_SESSION_BUS_ADDRESS']=get_pcss_output("$HOME/bin/get-dbus")
+os.environ['DBUS_SESSION_BUS_ADDRESS']=get_pcss_output(expandvars("$HOME/bin/get-dbus"))
 
 
 
@@ -47,7 +49,7 @@ def timer(mins):
 
 
 def make_htmail(s):
-    p = subprocess.Popen(['$HOME/.local/bin/mredact'], 
+    p = subprocess.Popen([expandvars('$HOME/.local/bin/mredact')], 
                          stdin=PIPE, stdout=PIPE)
     result, err = p.communicate(input = str.encode(s))
     return result
@@ -66,43 +68,64 @@ def composemail(title, content, html=True):
 """
 
 
-def sendmail(emails, makemail):
+def sendmail(the_mails, makemail):
+    emails = the_mails
     def f(new, old):
+        nonlocal emails
         strcontent = makemail(new, old)
-        p = Popen(['sendmail', '-f', os.environ["NOTIFIER_MAIL_FROM"], '-t', emails],
-                  stdin=PIPE)
-        p.communicate(input = str.encode(strcontent))
+        # mailfrom = os.environ.get("NOTIFIER_MAIL_FROM", "admin@mikaeldusenne.com")
+        # mailfrom = "admin@mikaeldusenne.com"
+        mailfrom = "mikael@rad.dad"
+        if type(emails) == list:
+            emails = ",".join(emails)
+        print("emails:", emails)
+        print("EMAIL >>>> ", mailfrom)
+        p = sp.run(['/usr/bin/sendmail', '-f', mailfrom, '-t', emails],
+                   input=str.encode(strcontent), check=True, capture_output=True)
+        print(p)
+        return p
+        # p = Popen(['/usr/bin/sendmail', '-f', mailfrom, '-t', emails],
+        #           stdin=PIPE)
+        # p.communicate(input = str.encode(strcontent))
+        
     return f
 
 
 def alert(genf, sound="Purr", action=None):
     def f(new, old):
-        c = genf(new, old)
-        if OS=='Darwin':
-            commands = [
-                [
-                    "osascript", "-e",
-                    f"{c['title']}: {c['content']}"
+        cs = genf(new, old)
+        anss = []
+        if type(cs) != list:
+            cs = [cs]
+        for c in cs:
+            if OS=='Darwin':
+                commands = [
+                    [
+                        "osascript", "-e",
+                        f"{c['title']}: {c['content']}"
+                    ]
                 ]
-            ]
-        elif OS=='Linux':
-            e = [
-                    "$HOME/bin/notification",
+            elif OS=='Linux':
+                e = [
+                    expandvars("$HOME/bin/notification"),
                     f"{c['title']}",
                     f"{c['content']}"
-            ]
-            if action is not None:
-                e = e+["-A", "a,a"]
-            
-            commands = [
-                f"$HOME/bin/play_sound {sound}".split(' '),
-                e]
-            
-        ans = [get_pcss_output(c) for c in commands][-1]
-        print(f"{ans=}")
-        if action is not None and ans != "1":
-            action(new, old)
-        return ans
+                ]
+                if action is not None:
+                    e = e+["-A", "a,a"]
+
+                commands = [
+                    expandvars(f"$HOME/bin/play_sound {sound}").split(' '),
+                    e]
+
+            ans = [get_pcss_output(c) for c in commands][-1]
+            anss.append(ans)
+            print(f"{ans=}")
+            if action is not None and ans != "1":
+                action(new, old)
+        if len(anss) == 1:
+            anss = anss[0]
+        return anss
     return f
 
 
